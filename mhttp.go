@@ -3,27 +3,35 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"flag"
 	"fmt"
 	"log"
 	"net"
+	"time"
 )
+
+var listenAddress *string = flag.String("l", "localhost:8080", "local address")
 
 func main() {
 	fmt.Printf("starting mhttp\n")
 
-	// listen
-	dstream, err := net.Listen("tcp", ":8080")
+	addr, _ := net.ResolveTCPAddr("tcp", *listenAddress)
+	listener, err := net.ListenTCP("tcp", addr)
 	if err != nil {
 		panic(err.Error())
 	}
-	defer dstream.Close()
+	defer listener.Close()
 
 	// accept
 	for {
-		connection, err := dstream.Accept()
+		var connection *net.TCPConn
+		connection, err := listener.AcceptTCP()
+
 		if err != nil {
 			panic(err.Error())
 		}
+		connection.SetKeepAlive(true)
+		connection.SetKeepAlivePeriod(time.Second * 30)
 
 		// handle
 		go handleConnection(connection)
@@ -61,7 +69,7 @@ func readFromClient(connectionReader *bufio.Reader) []byte {
 
 func handleResponse(request []byte, connection net.Conn) error {
 
-	var payload string
+	var payload []byte
 
 	httpResponse, err := ParseRequest(string(request))
 	if err != nil {
@@ -74,7 +82,7 @@ func handleResponse(request []byte, connection net.Conn) error {
 	}
 
 	// write some response:
-	n, err := connection.Write([]byte(payload))
+	n, err := connection.Write(payload)
 	if err != nil {
 		return err
 	}

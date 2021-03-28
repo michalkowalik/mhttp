@@ -44,22 +44,21 @@ func ParseRequest(request string) (*Http, error) {
 }
 
 // Handle Get request
-// for simplicity reasons, just text files from a hardcoded directory for now. nothing fancy-schmancy
-func (h *Http) Get() string {
+// for simplicity reasons, just files from a hardcoded directory for now.
+func (h *Http) Get() []byte {
 
 	data, err := h.readFile(h.Url)
 	if err != nil {
 		h.Status = 404
-		return h.Handle404()
+		return []byte(h.Handle404())
 	}
 
 	h.Status = 200
-	return h.createHeaders(200) +
-		data + "\r\n"
+	return append(h.createHeaders(200, len(data)), append(data, []byte("\r\n")...)...)
 }
 
 // read a file from url:
-func (h *Http) readFile(url string) (string, error) {
+func (h *Http) readFile(url string) ([]byte, error) {
 	if url == "/" {
 		url = "/index.html"
 	}
@@ -67,36 +66,31 @@ func (h *Http) readFile(url string) (string, error) {
 	filePath := path.Join(WebRoot, url)
 	_, err := os.Stat(filePath)
 	if os.IsNotExist(err) {
-		return "File not found", err
+		return []byte("File not found"), err
 	}
 
 	data, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		return "Error reading file", err
+		return []byte("Error reading file"), err
 	}
-	return string(data), nil
+	return data, nil
 }
 
 // Handle 404, file not found
-func (h *Http) Handle404() string {
-	return h.createHeaders(404) +
-		"Not found" +
-		"\r\n\r\n"
+func (h *Http) Handle404() []byte {
+	return append(h.createHeaders(404, 13), "Not found\r\n\r\n"...)
 }
 
 // CGI gateway? -> for the future reference
 
-// Hello world response:
-
 // GetHello returns generic hello World response
-func (h *Http) GetHello() string {
-	return h.createHeaders(200) +
-		"Hello World from mhttp/0.0.1\r\n" +
-		"\r\n"
+func (h *Http) GetHello() []byte {
+	helloString := "Hello World from mhttp/0.0.1\r\n\r\n"
+	return append(h.createHeaders(200, len(helloString)), helloString...)
 }
 
 // create headers:
-func (h *Http) createHeaders(status int) string {
+func (h *Http) createHeaders(status int, dataLength int) []byte {
 	response := fmt.Sprintf("HTTP/1.1 %d", status)
 
 	if status == 200 {
@@ -107,7 +101,8 @@ func (h *Http) createHeaders(status int) string {
 		response += " Internal Server Error\r\n"
 	}
 	response += "Server: mhttp/0.0.1\r\n"
-	response += "Content-Type: text/html\n\n"
+	response += fmt.Sprintf("Content-Type: %s\r\n", getContentType(getExtension(h.Url)))
+	response += fmt.Sprintf("Content-Length: %d\r\n", dataLength)
 
-	return response + "\r\n"
+	return []byte(response + "\r\n")
 }
