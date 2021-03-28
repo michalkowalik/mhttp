@@ -38,6 +38,9 @@ func ParseRequest(request string) (*Http, error) {
 
 	http.Method = tokens[0]
 	http.Url = tokens[1]
+	if http.Url == "/" {
+		http.Url = "/" + IndexFile
+	}
 
 	// for now, we're happily ignore http version
 	return http, nil
@@ -59,10 +62,6 @@ func (h *Http) Get() []byte {
 
 // read a file from url:
 func (h *Http) readFile(url string) ([]byte, error) {
-	if url == "/" {
-		url = "/index.html"
-	}
-
 	filePath := path.Join(WebRoot, url)
 	_, err := os.Stat(filePath)
 	if os.IsNotExist(err) {
